@@ -6,7 +6,7 @@
 #'  mês a ser processado no formato AAAAMMDD. Mudar a constante abaixo antes de processar
 #'  
 
-# ATENçÂO: data de processamento
+# ATENÇÃO: data de processamento
 dataproc <- "20150630"
 
 # source scripts necessários

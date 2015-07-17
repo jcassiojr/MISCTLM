@@ -1,18 +1,18 @@
 # script de carga dos dados de produ??o consignado
 
 # datas de processamento (mudar as duas abaixo a cada processamento)
-anoMesDia <- "20150630" # último dia do mês de processamento. Mudar a cada mês
-anoMesDia_ant <- "20150531" # último dia do mês anterior de processamento. Mudar a cada mês
-anoMesDia_2ant <- "20150430" # último dia do segundo mês anterior de processamento. Mudar a cada mês
+anoMesDia <- "20150430" # último dia do mês de processamento. Mudar a cada mês
+anoMesDia_ant <- "20150331" # último dia do mês anterior de processamento. Mudar a cada mês
+anoMesDia_2ant <- "20150228" # último dia do segundo mês anterior de processamento. Mudar a cada mês
 
 mm_aaaa <- paste0(substr(anoMesDia,5,6),".",substr(anoMesDia,1,4))
 mm_aaaa_ant <- paste0(substr(anoMesDia_ant,5,6),".",substr(anoMesDia_ant,1,4))
 
 # caminhos e arquivos
-rawDir <- "C:/MISAsserth/TESTE/MISCTLM/rawdata"
-tidyDir <- "C:/MISAsserth/TESTE/MISCTLM/tidydata"
-fileout_cuboprod <- paste(rawDir, mm_aaaa, "riscbgn_cubo_producao_",anoMesDia, ".csv", sep = "/")
-fileout_cuboliqu <- paste(rawDir, mm_aaaa, "riscbgn_cubo_liquidacao_",anoMesDia, ".csv", sep = "/")
+rawDir <- "C:/MIS Asserth/TESTE/pkgctlm/rawdata"
+tidyDir <- "C:/MIS Asserth/TESTE/pkgctlm/tidydata"
+fileout_cuboprod <- paste0(rawDir,"/", mm_aaaa,"/", "riscbgn_cubo_producao_",anoMesDia, ".csv")
+fileout_cuboliqu <- paste0(rawDir,"/", mm_aaaa,"/", "riscbgn_cubo_liquidacao_",anoMesDia, ".csv")
 
 # conexao Oracle
 caminho <- "DWCTLPRD"
@@ -22,6 +22,7 @@ passwd <- "usr_pbgn_ltra"
 
 # conexao Oracle
 library(RODBC)
+library(dplyr)
 channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
 
 # consulta sql
@@ -32,7 +33,7 @@ channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
 # ------------- PASSO 1 (OK)
 
 # cria tabela temp.producao a partir do Oracle
-cSQL <- paste0("Select round(a11.dt_base/100) as dt_base,",
+cSQL_temp <- paste0("Select round(a11.dt_base/100) as dt_base,",
                "round(a11.dt_crga/100) as dt_ref,",
                "A12.DS_CNAL_VNDA,",
                "A13.DS_EPDR,",
@@ -91,7 +92,8 @@ cSQL <- paste0("Select round(a11.dt_base/100) as dt_base,",
                "a18.ds_crtr,",
                "a18.cd_crtr;"
 )
-df_temp_producao <- sqlQuery(channel,consSQl, errors = TRUE)
+# query abaixo rodou em 6 minutos no Windows Cetelem 32b
+df_temp_producao <- sqlQuery(channel,cSQL_temp, errors = TRUE)
 # fecha conexão com Oracle ao sair
 odbcClose(channel)
 
@@ -131,11 +133,11 @@ df_riscbgn_cubo_producao <-
 # aqui gravar em riscbgn_cubo_producao_AAAAMMDD
 write.csv2(df_riscbgn_cubo_producao, file = fileout_cuboprod)
 
-# ------------- PASSO 4
+# ------------- PASSO 4 (OK)
 # entrada: tabelas oracle
 # saida: df_temp_liquidacao
 # cria tabela temp.producao
-# abre conex?o
+# abre conexao
 channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
 #cria consulta
 cSQL_liq <- paste0("Select round(r.dt_crga/100) as dt_ref,", # -- Extrai ano e m?s (exemplo: 20140605 -> 201406)
@@ -158,9 +160,9 @@ cSQL_liq <- paste0("Select round(r.dt_crga/100) as dt_ref,", # -- Extrai ano e m
                    "round(t.dt_base/100) as dt_base,", # -- Extrai ano e m?s (exemplo: 20140605 -> 201406)
                    "(round(r.dt_crga/10000) - round(t.dt_base/10000)) * 12 + mod(round(r.dt_crga/100),100) - mod(round(t.dt_base/100),100) as MOB,",
                    "sum(round(t.MT_OPRC/100,2)) as Producao,",
-                   "case x.cd_hist_fncr when '104' then sum(round(r.vl_mvmt/-100,2)) else sum(round(r.vl_mvmt/ 100,2)) end as vl_mvmt,",
-                   "case x.cd_hist_fncr when '104' then sum(round((r.vl_mvmt*t.qt_prcl*t.vl_taxa_ames)/-10000,2)) else sum(round((r.vl_mvmt*t.qt_prcl*t.vl_taxa_ames)/ 10000,2)) end as vl_mvmt_qtd_tx,",
-                   "case x.cd_hist_fncr when '104' then sum(round((r.vl_mvmt*t.vl_taxa_ames)/-10000,2)) else sum(round((r.vl_mvmt*t.vl_taxa_ames)/10000,2)) end as vl_mvmt_tx",
+                   "DECODE (x.cd_hist_fncr, '104',sum(round(r.vl_mvmt/-100,2)),sum(round((r.vl_mvmt*t.qt_prcl*t.vl_taxa_ames)/ 10000,2))) as vl_mvmt_qtd_tx,",
+                   "DECODE (x.cd_hist_fncr, '104',sum(round((r.vl_mvmt*t.qt_prcl*t.vl_taxa_ames)/-10000,2)),sum(round(r.vl_mvmt/ 100,2))) as vl_mvmt,",
+                   "DECODE (x.cd_hist_fncr, '104',sum(round((r.vl_mvmt*t.vl_taxa_ames)/-10000,2)),sum(round(r.vl_mvmt/ 100,2))) as vl_mvmt_tx",
                    " From usr_pbgn_load.tb_fat_mvmt_fncr r,",
                    "usr_pbgn_load.tb_dim_hist_fncr x,",
                    "usr_pbgn_load.Tb_Fat_Oprc_Rlzd t,",
@@ -208,13 +210,15 @@ cSQL_liq <- paste0("Select round(r.dt_crga/100) as dt_ref,", # -- Extrai ano e m
                    "j.ds_crtr,",
                    "j.cd_crtr,",
                    "round(t.dt_base/100),",
-                   "(round(r.dt_crga/10000)-round(t.dt_base/10000))*12+mod(round(r.dt_crga/100),100)-mod(round(t.dt_base/100),100));"
+                   "(round(r.dt_crga/10000)-round(t.dt_base/10000))*12+mod(round(r.dt_crga/100),100)-mod(round(t.dt_base/100),100);"
+
 )
+# query abaixo rodou em 17 (confirmar) minutos no Windows Cetelem 32b
 df_temp_liquidacao <- sqlQuery(channel,cSQL_liq, errors = TRUE)
 # fecha conex?o com Oracle ao sair
 odbcClose(channel)
 
-# ------------- PASSO 5
+# ------------- PASSO 5 (OK)
 df_temp_liquidacao <-
     df_temp_liquidacao %>%
     mutate (ATRASO = "Em Dia",
@@ -222,19 +226,21 @@ df_temp_liquidacao <-
             id_faix_atrs = -1,
             CD_CRTR = ifelse(!(CD_CRTR_TEMP %in% c(50,52,53,55)), 99, CD_CRTR_TEMP))
 
-# ------------- PASSO 6
+# ------------- PASSO 6 (OK)
 # entrada df_temp_liquidacao
 # saida: df_riscbgn_cubo_liquidacao
 df_riscbgn_cubo_liquidacao <-
     df_temp_liquidacao %>%
     select (DT_REF,DT_BASE,DS_CNAL_VNDA,DS_EPDR,DS_FLAL,DS_GRPO_PRMT,
-            DS_PRDT,DS_CRTR,ATRASO,FAIXA_REPORT,id_faix_atrs, Prazo_med_liq = MOB) %>%
+            DS_PRDT,DS_CRTR,ATRASO,FAIXA_REPORT,id_faix_atrs, MOB,
+            PRODUCAO, VL_MVMT, VL_MVMT_TX) %>%
     group_by(DT_REF,DT_BASE,DS_CNAL_VNDA,DS_EPDR,DS_FLAL,DS_GRPO_PRMT,
-             DS_PRDT,DS_CRTR,ATRASO,FAIXA_REPORT,id_faix_atrs, Prazo_med_liq) %>%
-    summarize(VLR_PROD_LIQ = sum(Producao),
-              VLR_LIQ = sum(vl_mvmt),
-              VLR_LIQ_TAX = sum(vl_mvmt_tx),
-              VLR_PROD_LIQ_PRAZO = sum(Producao*MOB))
+             DS_PRDT,DS_CRTR,ATRASO,FAIXA_REPORT,id_faix_atrs, MOB) %>%
+    summarize(VLR_PROD_LIQ = sum(as.numeric(PRODUCAO)),
+              VLR_LIQ = sum(as.numeric(VL_MVMT)),
+              VLR_LIQ_TAX = sum(as.numeric(VL_MVMT_TX)),
+              VLR_PROD_LIQ_PRAZO = sum(as.numeric(PRODUCAO)*MOB)) %>%
+    rename(Prazo_med_liq = MOB)
 
 # aqui gravar em riscbgn_cubo_producao_AAAAMMDD
 write.csv2(df_riscbgn_cubo_liquidacao, file = fileout_cuboliqu)
@@ -271,6 +277,7 @@ write.csv2(df_riscbgn_cubo_liquidacao, file = fileout_cuboliqu)
 #odbcClose(channel)
 
 # ------------- PASSO 8 e 9 (9 parcial, não encontrados datasets temp.fundinginputs e temp.RiscoCoef no consignado.sas)
+# ler aqui os datsets salvos fundinginputs e riscocoef
 #df_temp_base_marcacao <-
 #    df_temp_base_marcacao %>%
 #    mutate (ATRASO = "Em Dia",
@@ -281,11 +288,12 @@ write.csv2(df_riscbgn_cubo_liquidacao, file = fileout_cuboliqu)
 #    arrange(OPERACAO_EY)
 
 # ------------- PASSO 10, 11, 12, 13, 14 (NÃO USADO por falta de tabela funding), 15 e 16 (idem)
-    
-# --------------- PASSO 20 (executa a macro que implementa o que já foi executado acima)
-# chama com mes anterior e mes anterior do anterior
+
+# --------------- PASSO 20
+# gera base carteira mês ANT, lê base carteira mês ANT-do-ANT e merge com base carteira ANT para gerar cubo carteira mes ANT
 f_PNL(anoMesDia_ant,anoMesDia_2ant)
-# chama com mes corrente e mes anterior
+
+# gera base carteira mês ATU, lê base carteira mês ANT e merge com base carteira ATU para gerar cubo carteira mes ATU
 f_PNL(anoMesDia,anoMesDia_ant)
 # --------------- PASSO 24
 # chama com mes anterior e mes anterior do anterior
@@ -297,6 +305,6 @@ f_PNL2(anoMesDia,anoMesDia_ant)
 
 # comissão. Não será usada por hora (obs. no SAS cria macro com mesmo nome uma
 # segunda vez: PNL ??? no Consignado.sas. Quando for criar aqui mudar para f_PNL3!!)
-    
+
 # ----------- Fim do processamento consignado
 

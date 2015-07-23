@@ -2,7 +2,7 @@
 f_consignado_raw <- function(anoMesDia)
 {
     # datas de processamento (mudar as duas abaixo a cada processamento)
-    anoMesDia <- "20150430" # último dia do mês de processamento. Mudar a cada mês
+    # anoMesDia <- "20150430" # último dia do mês de processamento. Mudar a cada mês
     #anoMesDia_ant <- "20150331" # último dia do mês anterior de processamento. Mudar a cada mês
     #anoMesDia_2ant <- "20150228" # último dia do segundo mês anterior de processamento. Mudar a cada mês
 
@@ -10,11 +10,11 @@ f_consignado_raw <- function(anoMesDia)
     #mm_aaaa_ant <- paste0(substr(anoMesDia_ant,5,6),".",substr(anoMesDia_ant,1,4))
 
     # caminhos e arquivos
-    rawDir <- "C:/MIS Asserth/TESTE/pkgctlm/rawdata"
-    tidyDir <- "C:/MIS Asserth/TESTE/pkgctlm/tidydata"
-    fileout_cuboprod <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_producao_",anoMesDia, ".csv")
-    fileout_cuboliqu <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_liquidacao_",anoMesDia, ".csv")
-    fileout_basecart <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_base_carteira_",anoMesDia, ".csv")
+    rawDir <- "./rawdata"
+    tidyDir <- "./tidydata"
+    fileout_cuboprod <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_producao_",anoMesDia, "_raw.csv")
+    fileout_cuboliqu <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_liquidacao_",anoMesDia, "_raw.csv")
+    fileout_basecart <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_base_carteira_",anoMesDia, "_raw.csv")
 
     # conexao Oracle
     caminho <- "DWCTLPRD"
@@ -22,19 +22,33 @@ f_consignado_raw <- function(anoMesDia)
     passwd <- "usr_pbgn_ltra"
 
     # conexao Oracle
-    if(!require(RODBC)){install.packages("RODBC")}
-    if(!require(dplyr)){install.packages("dplyr")}
+    # if(!require(RODBC)){install.packages("RODBC")}
+    # if(!require(dplyr)){install.packages("dplyr")}
 
     # abre conexão com Oracle
     channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
 
-    # ------------- PASSO 1 (OK)
-
     # ----------------------------------------------
     # TABELA PRODUCAO
     # ----------------------------------------------
-
-    # cria tabela temp.producao a partir do Oracle
+    # ------------- PASSO 1
+    # cria tabela temp.producao a partir do Oracle, segundo pesquisa sas já existente
+    # em consignado.sas
+    # Descrição:
+    # seleciona a partir das tabelas de fatos de Operações Mensais e Operações Realizadas
+    # os valores de montante de saldos contábeis não ???
+    # Também obtém as seguinte dimensões para poder realizar as sumarizações e 
+    # filtragens:
+    #   tb_dim_grpo_prmt (correspondente bancário)
+    #   tb_dim_prdt (produto)
+    #   tb_dim_epdr (empresa cliente?)
+    #   tb_dim_flal (filial BGN)
+    #   tb_dim_prmt (Parceiro?)
+    #   tb_dim_crtr (tipo de consignado?)
+    #   tb_dim_cnal_vnda (canal de venda)
+    # Período selecionado:
+    #   seleciona sempre para todas as datas bases acima de janeiro/2013
+    
     cSQL_temp <- paste0("Select round(a11.dt_base/100) as dt_base,",
                "round(a11.dt_crga/100) as dt_ref,",
                "A12.DS_CNAL_VNDA,",
@@ -95,13 +109,18 @@ f_consignado_raw <- function(anoMesDia)
                "a18.cd_crtr;"
     )
 
-    # query abaixo rodou em 6 minutos no Windows Cetelem 32b
+    # executa a consulta
+    # a consulta abaixo roda em média em 6 minutos no Windows Cetelem 32b
     df_temp_producao <- sqlQuery(channel,cSQL_temp, errors = TRUE)
 
-    # fecha conexão com Oracle ao sair
+    # fecha conexão com Oracle
     odbcClose(channel)
 
     # ------------- PASSO 2 (OK) Valores conferem com SAS
+    # força para todos os registros:
+    #    condição de ATRASO = "Em Dia"
+    #    FAIXA REPORT = "R0"
+    #    acumula ocorrências de código de consignado fora dos grupos como geral 99-CONSIGNADO
     df_temp_producao <-
         df_temp_producao %>%
         mutate (ATRASO = "Em Dia",
@@ -110,7 +129,6 @@ f_consignado_raw <- function(anoMesDia)
                 CD_CRTR = ifelse(!(CD_CRTR_TEMP %in% c(50,52,53,55)), 99, CD_CRTR_TEMP))
 
     # ------------ PASSO ADICIONAL PARA TEMP_PRODUCAO
-
     # troca vírgula por ponto em colunas selecionadas de data.frame
     df_temp_producao <- data.frame(lapply(df_temp_producao, function(x) gsub(",", ".", x, fixed = TRUE)), stringsAsFactors = FALSE)
 
@@ -141,11 +159,12 @@ f_consignado_raw <- function(anoMesDia)
                 MT_BRUTO_PRAZO_PRD = sum(as.numeric(MT_BRUTO_PRAZO_PRD)),
                 MT_BRUTO_PRAZO_JUROS_PRD = sum(as.numeric(MT_BRUTO_PRAZO_JUROS_PRD)))
 
-    # aqui gravar em riscbgn_cubo_producao_AAAAMMDD
+    # aqui gravar arquivo raw em riscbgn_cubo_producao_AAAAMMDD_raw.csv na pasta do mês de processamento
+    # este arquivo deve substituir os dados da aba base usada na planilha TDB Produção
     write.csv2(df_riscbgn_cubo_producao, file = fileout_cuboprod)
 
     # remove bases temporarias
-    rm(df_temp_producao)
+    rm(df_temp_producao, df_riscbgn_cubo_producao)
     # ----------------------------------------------
     # TABELA LIQUIDACAO
     # ----------------------------------------------
@@ -155,10 +174,30 @@ f_consignado_raw <- function(anoMesDia)
     # saida: df_temp_liquidacao
     # cria tabela temp.producao
 
-    # abre conexao
+    # abre conexao com oracle
     channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
 
-    #cria consulta
+    # cria tabela temp.liquidacao a partir do Oracle, segundo pesquisa sas já existente
+    # em consignado.sas
+    # Descrição:
+    # seleciona a partir das tabelas de fatos de Movimentações Financeiras Realizadas
+    # e Operações Realizadas os valores de montante de saldos contábeis não ???
+    # Também obtém as seguinte dimensões para poder realizar as sumarizações e 
+    # filtragens:
+    #   tb_dim_hist_fncr (histórico financeiro)
+    #   tb_dim_grpo_prmt (correspondente bancário)
+    #   tb_dim_prdt (produto)
+    #   tb_dim_epdr (empresa cliente?)
+    #   tb_dim_flal (filial BGN)
+    #   tb_dim_prmt (Parceiro?)
+    #   tb_dim_crtr (tipo de consignado?)
+    #   tb_dim_cnal_vnda (canal de venda)
+    #   tb_dim_crdn (?)
+    #   tb_dim_grnt_rgnl (?)
+    #   tb_dim_grnt (?)
+    #   tb_dim_oprd (?)
+    # Período selecionado:
+    #   seleciona sempre para todas as datas de carga acima de janeiro/2013
     cSQL_liq <- paste0("Select round(r.dt_crga/100) as dt_ref,", # -- Extrai ano e m?s (exemplo: 20140605 -> 201406)
                    "r.cd_tipo_mvmt,",
                    "x.cd_hist_fncr,",
@@ -176,7 +215,7 @@ f_consignado_raw <- function(anoMesDia)
                    "k.DS_FLAL,",
                    "j.ds_crtr,",
                    "j.cd_crtr as cd_crtr_temp,",
-                   "round(t.dt_base/100) as dt_base,", # -- Extrai ano e m?s (exemplo: 20140605 -> 201406)
+                   "round(t.dt_base/100) as dt_base,", # -- Extrai ano e mês (exemplo: 20140605 -> 201406)
                    "(round(r.dt_crga/10000) - round(t.dt_base/10000)) * 12 + mod(round(r.dt_crga/100),100) - mod(round(t.dt_base/100),100) as MOB,",
                    "sum(round(t.MT_OPRC/100,2)) as Producao,",
                    "DECODE (x.cd_hist_fncr, '104',sum(round(r.vl_mvmt/-100,2)),sum(round((r.vl_mvmt*t.qt_prcl*t.vl_taxa_ames)/ 10000,2))) as vl_mvmt_qtd_tx,",
@@ -233,13 +272,18 @@ f_consignado_raw <- function(anoMesDia)
 
     )
 
-    # query abaixo rodou em 17 (confirmar) minutos no Windows Cetelem 32b
+    # executa a consulta
+    # a consulta abaixo roda em média em 17 minutos no Windows Cetelem 32b
     df_temp_liquidacao <- sqlQuery(channel,cSQL_liq, errors = TRUE)
 
     # fecha conexao com Oracle
     odbcClose(channel)
 
     # ------------- PASSO 5 (OK)
+    # força para todos os registros:
+    #    condição de ATRASO = "Em Dia"
+    #    FAIXA REPORT = "R0"
+    #    acumula ocorrências de código de consignado fora dos grupos como geral 99-CONSIGNADO
     df_temp_liquidacao <-
         df_temp_liquidacao %>%
         mutate (ATRASO = "Em Dia",
@@ -249,12 +293,25 @@ f_consignado_raw <- function(anoMesDia)
 
     # ------------ PASSO ADICIONAL PARA TEMP_LIQUIDACAO
 
-    # mudar vírgula para ponto decimal somente nos campos decimais
+    # muda vírgula para ponto decimal somente nos campos decimais
     df_temp_liquidacao <- data.frame(lapply(df_temp_liquidacao, function(x) gsub(",", ".", x, fixed = TRUE)), stringsAsFactors = FALSE)
 
     # ------------- PASSO 6 (OK) Valores conferem com SAS
     # entrada df_temp_liquidacao
     # saida: df_riscbgn_cubo_liquidacao
+    # sumariza os valores de liquidação, taxa de liquidação e prazo de liquidação de produção por
+    #    data de referência 
+    #    data de processamento
+    #    canal de venda
+    #    empresa cliente (?)
+    #    filial BGN
+    #    correspondente bancário
+    #    produto
+    #    tipo de consignado (?)
+    #    faixa de atraso
+    #    faixa de report
+    #    identificação da faixa de atraso
+    #    MOB (?)
     df_riscbgn_cubo_liquidacao <-
         df_temp_liquidacao %>%
         select (DT_REF,DT_BASE,DS_CNAL_VNDA,DS_EPDR,DS_FLAL,DS_GRPO_PRMT,
@@ -268,11 +325,12 @@ f_consignado_raw <- function(anoMesDia)
                 VLR_PROD_LIQ_PRAZO = sum(as.numeric(PRODUCAO)*as.numeric(MOB))) %>%
         rename(Prazo_med_liq = MOB)
 
-    # aqui gravar em riscbgn_cubo_producao_AAAAMMDD
+    # aqui gravar arquivo raw em riscbgn_cubo_liquidacao_AAAAMMDD_raw.csv na pasta do mês de processamento
+    # este arquivo deve substituir os dados da aba base usada na planilha TDB Produção
     write.csv2(df_riscbgn_cubo_liquidacao, file = fileout_cuboliqu)
 
-    # remove bases temporarias
-    rm(df_temp_liquidacao)
+    # remove bases usadas
+    rm(df_temp_liquidacao, df_riscbgn_cubo_liquidacao)
 
     # ----------------------------------------------
     # TABELA CARTEIRA
@@ -280,8 +338,24 @@ f_consignado_raw <- function(anoMesDia)
 
     # conecta ao Oracle
     channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
-
-    # cria tabela riscbgn.base_carteira
+    
+    # cria tabela riscbgn.base_carteira a partir do Oracle, segundo pesquisa sas já existente
+    # em consignado.sas
+    # Descrição:
+    # seleciona a partir das tabelas de fatos de Operações mensais e
+    # Operações Realizadas os valores de montante de saldos contábeis não ???
+    # Também obtém as seguinte dimensões para poder realizar as sumarizações e 
+    # filtragens:
+    #   tb_dim_hist_fncr (histórico financeiro)
+    #   tb_dim_grpo_prmt (correspondente bancário)
+    #   tb_dim_prdt (produto)
+    #   tb_dim_epdr (empresa cliente?)
+    #   tb_dim_flal (filial BGN)
+    #   tb_dim_prmt (Parceiro?)
+    #   tb_dim_crtr (tipo de consignado?)
+    #   tb_dim_cnal_vnda (canal de venda)
+    # período selecionado:
+    #   seleciona para id_ultm_dia_mes igual ao último dia do mês de referência processado
     cSQL_cart <- paste0("select tb_fat_oprc_mnsl.CD_OPRC,",
                         "tb_fat_oprc_mnsl.id_oprc_rlzd,",
                         "tb_dim_grpo_prmt.ds_grpo_prmt,",
@@ -325,7 +399,8 @@ f_consignado_raw <- function(anoMesDia)
                         " and tb_fat_oprc_mnsl.id_ultm_dia_mes = ", anoMesDia,
                         " and tb_fat_oprc_mnsl.mt_sldo_cntb_nao_cdda > 0;")
 
-    # query abaixo rodou em 7 minutos no Windows Cetelem 32b
+    # executa a consulta
+    # a consulta abaixo roda em média em 7 minutos no Windows Cetelem 32b
     df_temp_carteira <- sqlQuery(channel,cSQL_cart, errors = TRUE)
 
     # fecha conexão Oracle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # fecha conexão com Oracle ao sair
@@ -391,15 +466,12 @@ f_consignado_raw <- function(anoMesDia)
                   JUROS = sum(JUROS),
                   SLD_PREJUIZO = sum(SLD_PREJUIZO))
 
-    # aqui gravar em riscbgn_base_carteira_AAAAMMDD
+    # aqui gravar arquivo raw em riscbgn_base_carteira_AAAAMMDD_raw.csv na pasta do mês de processamento
+    # este arquivo deve ser incrementado aos dados da aba base usada na planilha TDB Produção
     write.csv2(df_riscbgn_base_carteira, file = fileout_basecart)
 
-    # remove bases temporarias
-    rm(df_temp_carteira)
-
-    # ----------------------------------------------
-    # MONTA BASES CONSIG_PROD, CONSIG_LIQ e CONSIG_CART (incremental para o mês)
-    # ----------------------------------------------
+    # remove bases usadas antes de sair
+    rm(df_temp_carteira, df_riscbgn_base_carteira, df_riscbgn_cubo_liquidacao, df_riscbgn_cubo_producao)
 
     # ----------- Fim do processamento consignado
 }

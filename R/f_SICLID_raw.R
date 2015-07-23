@@ -198,10 +198,7 @@ f_SICLID_raw <- function(dataproc)
     #write.table(l$AMORT, file = fileout5, quote = FALSE, sep = ";", row.names = FALSE)
     
     
-    #write.table(df_creprod, file = fileout1, quote = FALSE, sep = ";", row.names = FALSE)
-    # obs: usar write.csv2 ppois write.tale e write csv deu erro incompreensível
-    # alguns valores de TXCLM ficaram multiplicados por 100000, sem nenhum motivo
-    # aparente
+   # gravando os arquivos .csv
     write.csv2(df_creprod, file = fileout1)
     write.csv2(df_carprod, file = fileout2)
     write.csv2(df_seguro, file = fileout3)

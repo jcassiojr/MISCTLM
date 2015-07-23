@@ -1,4 +1,4 @@
-function f_coefrisco(df_temp_carteira) {
+f_coefrisco <- function(df_temp_carteira) {
     # aqui ler csv de riscocoef pre gerado
     filein_rcoef <- paste0(rawDir,"/temp_riscocoef.csv")
     # procedimennto (Amauri): criar script para copiar arquivo mais atual a partir do servidor

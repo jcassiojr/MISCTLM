@@ -1,48 +1,220 @@
-#' @description
-#' funcao de carga dos dados de producao, liquidação e carteira de  consignado
-#'
-#' @details
-#' nonononono
-#' @param x A number
-#' @param y A number
-#' @return The sum of \code{x} and \code{y}
-#' @examples
-#' add(1, 1)
-#' add(10, 1)
-f_consignado_raw <- function(anoMesDia)
-{
-    # datas de processamento (mudar as duas abaixo a cada processamento)
-    # anoMesDia <- "20150430" # último dia do mês de processamento. Mudar a cada mês
-    #anoMesDia_ant <- "20150331" # último dia do mês anterior de processamento. Mudar a cada mês
-    #anoMesDia_2ant <- "20150228" # último dia do segundo mês anterior de processamento. Mudar a cada mês
-    
-    
-    #mm_aaaa_ant <- paste0(substr(anoMesDia_ant,5,6),".",substr(anoMesDia_ant,1,4))
+---
+title: "Procedimento de extração TDB Produção"
+author: "José Cassio dos Santos Jr."
+date: "8 de julho de 2015"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    theme: flatly
+---
 
+Este script descreve em detalhe o código fonte que executa a extração. Abaixo seguem partes do código fonte comentados, na ordem em que são executados:
+
+```{r, eval = FALSE}
+# ATENÇÃO: mudar data de processamento abaixo
+dataproc <- "20150630"
+```
+
+```{r, eval = FALSE}
+# source scripts necessários
+source("./R/f_leCsvCARPROD_raw.R")
+source("./R/f_SICLID_raw.R")
+source("./R/f_consignado_raw.R")
+```
+
+```{r, eval = FALSE}
+# verifica e prepara ambiente de libraries necessárias
+if (!requireNamespace("openxlsx", quietly = TRUE)) {
+  stop("openxlsx needed for this function to work. Please install it.",
+       call. = FALSE)
+} 
+if(!require(openxlsx)){install.packages("openxlsx")}
+
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  stop("dplyr needed for this function to work. Please install it.",
+       call. = FALSE)
+}
+if(!require(RODBC)){install.packages("RODBC")}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("dplyr needed for this function to work. Please install it.",
+         call. = FALSE)
+}
+if(!require(RODBC)){install.packages("RODBC")}
+```
+
+```{r, eval = FALSE}
+# constantes usadas
+# constantes
+rawDir <- "./rawdata" # pasta com arquivos brutos (a partir da pasta de trabalho)
+tidyDir <- "./tidydata" # pasta com arquivos processados (a partir da pasta de trabalho)
+dtproc <- paste0(substr(dataproc,5,6),".",substr(dataproc,1,4))
+```
+
+```{r, eval = FALSE}
+# checa se diretorio corrente raw já carregado para o mês
+if (!file.exists(paste0(rawDir,"/",dtproc))){
+  stop("Diretório com arquivos origem do mês não está presente.",
+       call. = FALSE)
+}  
+```
+
+```{r, eval = FALSE}
+# criar diretório do mês no diretório tidydata, caso não exista
+if (!file.exists(paste0(tidyDir,"/",dtproc))){
+  dir.create(file.path(tidyDir, dtproc))
+} 
+```
+
+```{r, eval = FALSE}
+# chama função para criar os arquivos tidy para alimentar os dados de Produção Cartão 
+# da planilha TDB Produção, a partir dos arquivos gerados pelo SAS
+f_SICLID_raw(dataproc)
+```
+
+```{r, eval = FALSE}
+# chama função para criar os arquivos tidy para alimentar os dados de Consignado 
+# da planilha TDB Produção, a partir dos arquivos gerados pelo SAS
+f_consignado_raw(dataproc)
+```
+
+### Função f_SICLID_raw
+ 
+```{r, eval = FALSE}
+    # constates
+    mm_aaaa <- paste0(substr(dataproc,5,6),".",substr(dataproc,1,4))
+    aaaamm <- paste0(substr(dataproc,1,4),substr(dataproc,5,6))
+    carprod_in <- paste0("./rawdata/", mm_aaaa, "/CARPROD_", dataproc,".txt")
+    carteprod_in <- paste0("./rawdata/", mm_aaaa, "/carte_prod_TDB_PRODUCAO_",dataproc,".csv")
+    carteseguros_in <- paste0("./rawdata/", mm_aaaa, "/carte_seguros_", aaaamm,".csv")
+    cartecartoes_in <- paste0("./rawdata/", mm_aaaa, "/carte_cartoes_", aaaamm,".csv")
+    carteamort_in <- paste0("./rawdata/", mm_aaaa, "/carte_amort_",aaaamm,".csv")
+    fileout1 <- paste("./tidydata", mm_aaaa, "tidyCarProd.csv", sep = "/")
+    fileout2 <- paste("./tidydata", mm_aaaa, "tidyCarteProd.csv", sep = "/")
+    fileout3 <- paste("./tidydata", mm_aaaa, "tidyCarteSeguros.csv", sep = "/")
+    fileout4 <- paste("./tidydata", mm_aaaa, "tidyCarteCartoes.csv", sep = "/")
+    fileout5 <- paste("./tidydata", mm_aaaa, "tidyCarteAmort.csv", sep = "/")
+```
+
+```{r, eval = FALSE}
+    ################################
+    # aba <mês>", DADOS DE PRODUÇÃO CREDIÁRIO
+    ################################
+    # ler arquivo de janeiro/2015 a maio/2015
+    df_creprod <- f_leCsvCARPROD_raw(carprod_in, !temHeader)
+    # mudando nomes
+    new_names <- c("SOCIEDADE","DATAPROC","CHAINEORI","PRODALP","MODPAY","TIPOTNC","NBFI","MTFI","DURFIN","TAC",  "TEC",	"TXCLM",	"TXVDRFINAL",	"SEGURO",	"RETENCAO")
+    names(df_creprod) <- new_names
+    # rearranjando colunas
+    df_creprod <- 
+      df_creprod %>%
+      select(SOCIEDADE, CHAINEORI,PRODALP,MODPAY,TIPOTNC,NBFI,MTFI,
+             DURFIN,TAC,  TEC,	TXCLM,	TXVDRFINAL,	SEGURO,	RETENCAO, DATAPROC)
+    
+    # colocar filtro para gravar somente em baseCarProd o mês corrente
+    # (pois não pode alterar valores dos meses anteriores. 
+    #-------------OBS
+    # orientação é forçar os meses anteriores como o mes corrente para bater com relatório
+    # atual. Depois que alinhar como proceder, devemos alterar este procedimento
+    df_creprod <-
+      df_creprod %>%
+      mutate(DATAPROC = paste0(substr(mm_aaaa,4,7),substr(mm_aaaa,1,2)))
+```
+
+```{r, eval = FALSE}
+    ###################
+    # aba <mês>, DADOS DE PRODUÇÃO CARTÃO
+    ###################
+    # ler arquivos de janeiro/2015 a maio/2015
+    df_carprod <- f_leCsvCARPROD_raw(carteprod_in,temHeader)
+    # eliminando coluna COUNT_OF_SOCIEDADE
+    df_carprod <- 
+      df_carprod %>%
+      select (-(COUNT_OF_SOCIEDADE))
+    #-------------OBS
+    # orientação é forçar os meses anteriores como o mes corrente para bater com relatório
+    # atual. Depois que alinhar como proceder, devemos alterar este procedimento
+    df_carprod <-
+      df_carprod %>%
+      mutate(DATAPROC = paste0(substr(mm_aaaa,4,7),substr(mm_aaaa,1,2)))
+```
+
+```{r, eval = FALSE}
+    ####################
+    # aba <mês>, DADOS DE ADESÃO E BASE DE SEGUROS
+    ##################
+    # ler arquivos de janeiro/2015 a maio/2015
+    df_seguro <- f_leCsvCARPROD_raw(carteseguros_in,temHeader)
+    #-------------OBS
+    # orientação é forçar os meses anteriores como o mes corrente para bater com relatório
+    # atual. Depois que alinhar como proceder, devemos alterar este procedimento
+    df_seguro <-
+      df_seguro %>%
+      mutate(DATAPROC = paste0(substr(mm_aaaa,4,7),substr(mm_aaaa,1,2)))
+```
+
+```{r, eval = FALSE}
+    ###################
+    # aba <mês>, DADOS DE CARTÃO
+    ########################
+    # ler arquivos de janeiro/2015 a maio/2015
+    df_cartecartoes <- f_leCsvCARPROD_raw(cartecartoes_in,temHeader)
+    #-------------OBS
+    # orientação é forçar os meses anteriores como o mes corrente para bater com relatório
+    # atual. Depois que alinhar como proceder, devemos alterar este procedimento
+    df_cartecartoes <-
+      df_cartecartoes %>%
+      mutate(DATAPROC = paste0(substr(mm_aaaa,4,7),substr(mm_aaaa,1,2)))
+```
+
+```{r, eval = FALSE}
+##################
+    # aba DadosAmort, DADOS DE AMORTIZACAO
+    #####################
+    # ler arquivos de janeiro/2015 a maio/2015
+    df_carteamort <- f_leCsvCARPROD_raw(carteamort_in,temHeader)
+    #-------------OBS
+    # orientação é forçar os meses anteriores como o mes corrente para bater com relatório
+    # atual. Depois que alinhar como proceder, devemos alterar este procedimento
+    df_carteamort <-
+      df_carteamort %>%
+      mutate(DATAPROC = paste0(substr(mm_aaaa,4,7),substr(mm_aaaa,1,2)))
+```
+
+```{r, eval = FALSE}
+# gravando os arquivos .csv
+    write.csv2(df_creprod, file = fileout1)
+    write.csv2(df_carprod, file = fileout2)
+    write.csv2(df_seguro, file = fileout3)
+    write.csv2(df_cartecartoes, file = fileout4)
+    write.csv2(df_carteamort, file = fileout5)
+```
+
+### Função f_consignado_raw
+
+```{r, eval = FALSE}
     # caminhos e arquivos
     mm_aaaa <- paste0(substr(anoMesDia,5,6),".",substr(anoMesDia,1,4))
     rawDir <- "./rawdata"
     tidyDir <- "./tidydata"
-    fileout_cuboprod <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_producao_",anoMesDia, "_tidy.csv")
-    fileout_cuboliqu <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_liquidacao_",anoMesDia, "_tidy.csv")
-    fileout_basecart <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_base_carteira_",anoMesDia, "_tidy.csv")
-
+    fileout_cuboprod <- paste0(tidyDir,"/", mm_aaaa,"/","riscbgn_cubo_producao_",anoMesDia, "_tidy.csv")
+    fileout_cuboliqu <- paste0(tidyDir,"/", mm_aaaa,"/","riscbgn_cubo_liquidacao_",anoMesDia, "_tidy.csv")
+    fileout_basecart <- paste0(tidyDir,"/", mm_aaaa,"/","riscbgn_base_carteira_",anoMesDia, "_tidy.csv")
+    
     # conexao Oracle
     caminho <- "DWCTLPRD"
     userid <- "usr_pbgn_ltra"
     passwd <- "usr_pbgn_ltra"
+```
 
-    # conexao Oracle
-    # if(!require(RODBC)){install.packages("RODBC")}
-    # if(!require(dplyr)){install.packages("dplyr")}
-
-    # abre conexão com Oracle
-    channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
-
+```{r, eval = FALSE}
     # ----------------------------------------------
     # TABELA PRODUCAO
     # ----------------------------------------------
-    # ------------- PASSO 1
+    
+    # abre conexão com Oracle
+    channel <- odbcConnect(caminho,uid=userid, pwd=passwd, believeNRows=FALSE)
+    
     # cria tabela temp.producao a partir do Oracle, segundo pesquisa sas já existente
     # em consignado.sas
     # Descrição:
@@ -121,14 +293,11 @@ f_consignado_raw <- function(anoMesDia)
     )
 
     # executa a consulta
-    # a consulta abaixo roda em média em 6 minutos no Windows Cetelem 32b
     df_temp_producao <- sqlQuery(channel,cSQL_temp, errors = TRUE)
 
     # fecha conexão com Oracle
     odbcClose(channel)
-
-    # ------------- PASSO 2 (OK) Valores conferem com SAS
-    # força para todos os registros:
+        # força para todos os registros:
     #    condição de ATRASO = "Em Dia"
     #    FAIXA REPORT = "R0"
     #    acumula ocorrências de código de consignado fora dos grupos como geral 99-CONSIGNADO
@@ -176,11 +345,13 @@ f_consignado_raw <- function(anoMesDia)
 
     # remove bases temporarias
     rm(df_temp_producao, df_riscbgn_cubo_producao)
+```
+
+```{r, eval = FALSE}
     # ----------------------------------------------
     # TABELA LIQUIDACAO
     # ----------------------------------------------
-
-    # ------------- PASSO 4 (OK)
+    
     # entrada: tabelas oracle
     # saida: df_temp_liquidacao
     # cria tabela temp.producao
@@ -290,7 +461,6 @@ f_consignado_raw <- function(anoMesDia)
     # fecha conexao com Oracle
     odbcClose(channel)
 
-    # ------------- PASSO 5 (OK)
     # força para todos os registros:
     #    condição de ATRASO = "Em Dia"
     #    FAIXA REPORT = "R0"
@@ -307,7 +477,6 @@ f_consignado_raw <- function(anoMesDia)
     # muda vírgula para ponto decimal somente nos campos decimais
     df_temp_liquidacao <- data.frame(lapply(df_temp_liquidacao, function(x) gsub(",", ".", x, fixed = TRUE)), stringsAsFactors = FALSE)
 
-    # ------------- PASSO 6 (OK) Valores conferem com SAS
     # entrada df_temp_liquidacao
     # saida: df_riscbgn_cubo_liquidacao
     # sumariza os valores de liquidação, taxa de liquidação e prazo de liquidação de produção por
@@ -343,6 +512,9 @@ f_consignado_raw <- function(anoMesDia)
     # remove bases usadas
     rm(df_temp_liquidacao, df_riscbgn_cubo_liquidacao)
 
+```
+
+```{r, eval = FALSE}
     # ----------------------------------------------
     # TABELA CARTEIRA
     # ----------------------------------------------
@@ -414,7 +586,7 @@ f_consignado_raw <- function(anoMesDia)
     # a consulta abaixo roda em média em 7 minutos no Windows Cetelem 32b
     df_temp_carteira <- sqlQuery(channel,cSQL_cart, errors = TRUE)
 
-    # fecha conexão Oracle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # fecha conexão com Oracle ao sair
+    # fecha conexão Oracle                                                                            
     odbcClose(channel)
 
     # ------------ PASSO ADICIONAL PARA TEMP_CARTEIRA
@@ -422,7 +594,6 @@ f_consignado_raw <- function(anoMesDia)
     # muda vírgula para ponto decimal somente nos campos decimais
     df_temp_carteira <- data.frame(lapply(df_temp_carteira, function(x) gsub(",", ".", x, fixed = TRUE)), stringsAsFactors = FALSE)
 
-    # -------------- PASSO 13 (OK)
     df_temp_carteira <-
         df_temp_carteira %>%
         arrange(ID_OPRC_RLZD) %>%
@@ -456,14 +627,6 @@ f_consignado_raw <- function(anoMesDia)
         select (-(DATA_BASE)) %>%
         arrange(DT_BASE,QT_PRCL)
 
-    # ------------- PASSO 14 e 15 (OK) Não precisa no momento destes passos
-    # f_funding(df_temp_carteira)
-
-    # ------------- PASSO 16 (OK) Não precisa no momento destes passos
-    # f_coefrisco(df_temp_carteira)
-
-    # ------------- PASSO 17 (OK)
-
     df_riscbgn_base_carteira <-
         df_temp_carteira %>%
         select (ID_OPRC_RLZD, DT_REF,DT_BASE,DS_CNAL_VNDA,DS_EPDR,DS_FLAL,DS_GRPO_PRMT,
@@ -480,10 +643,10 @@ f_consignado_raw <- function(anoMesDia)
     # aqui gravar arquivo raw em riscbgn_base_carteira_AAAAMMDD_raw.csv na pasta do mês de processamento
     # este arquivo deve ser incrementado aos dados da aba base usada na planilha TDB Produção
     write.csv2(df_riscbgn_base_carteira, file = fileout_basecart)
+```
 
-    # remove bases usadas antes de sair
+```{r, eval = FALSE}
+# remove bases usadas antes de sair
     rm(df_temp_carteira, df_riscbgn_base_carteira, df_riscbgn_cubo_liquidacao, df_riscbgn_cubo_producao)
-
-    # ----------- Fim do processamento consignado
-}
+```
 

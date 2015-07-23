@@ -1,0 +1,193 @@
+---
+title: "TDB Produção"
+author: "José Cassio dos Santos Jr. - Grupo Asserth"
+date: "1 de julho de 2015"
+output: 
+  html_document: 
+    theme: flatly
+---
+
+-----------------------------
+
+## CODE BOOK
+
+Abaixo estão descritos os procedimentos para a geração dos dados do relatório TDB Produção
+
+### JANELA DE EXECUÇÃO
+
+Primeiro dia útil do mês
+
+### TAREFAS
+
+- rodar SAS para gerar arquivos raw. 
+- rodar R para gerar arquivos tidy para alimentar planilha. 
+- importar para planilha
+
+### PROCEDIMENTOS
+
+#### Processamento SAS para gerar dados de Produção de Cartões
+
+1. monitorar pastas no servidor onde o SICLID gera os dumps do mês:
+/siclid/AAAAMM
+2. assim que arquivos usados no script SAS planif1.sas estiverem presentes:
+3. Abrir o aplicativo Guide (?) do SAS
+4. abrir o projeto (?) 
+5. abrir o script planif01.sas e clicar em Run
+6. ao terminar, examinar na aba de output se dados foram gerados corretamente
+7. entrar na aba de log e examinar para ver se processamento correu sem problemas
+8. repetir os passos 5 a 7 para os scripts planif02.sas, planif03.sas, planif04.sas, planif05.sas, planif06.sas e planif07.sas
+
+#### Processamento R
+
+1. copiar os arquivos abaixo para a pasta "C:\MISAsserth\PRODUCAO\MISCTLM\rawdata\MM.AAAA"
+- CARPROD_AAAAMMDD.txt
+- carte_amort_AAAAMM.csv
+- carte_cartoes_AAAAMM.csv
+- carte_prod_TDBPRODUCAO_AAAAMMDD.csv
+- carte_seguros_AAAAMM.csv
+2. Entrar no RStudio
+3. Carregar o projeto **pckctlm**
+4. abrir o script carregaTDBProducao.R 
+5. mudar o valor da constante dataproc para a data do último dia do mês de referência no formato "AAAAMMDD"
+6. clicar no botão source
+7. checar se mensagem de processamento finalizado sem erros
+
+#### Carga na planilha TDB Producao
+
+1. adicionar os arquivos abaixo ao final dos dados dos meses anteriores nas abas de base correspondentes da planilha TDB Produção:
+- tidyCarProd.csv -> aba Base-CAR-Prod (incremental)
+- tidyCarteCartoes.csv -> aba baseCARTECARTOES (incremental)
+- tidyCarteSeguros.csv -> baseCARTESEGUROS (incremental)
+- tidyCarteProd.csv -> CARPROD-Compras (incremental)
+- tidyCarteAmort.csv -> baseAMORT (incremental)
+- riscbgn_cubo_producao_AAAAMMDD_tidy.csv ->  baseCONSIG_PRD (substituir antigo conteúdo)
+- riscbgn_cubo_liquidacao_AAAAMMDD_tidy.csv ->  baseCONSIG_LIQ (substituir antigo conteúdo)
+- riscbgn_base_carteira_AAAAMMDD_tidy.csv ->  baseCONSIG_CART (incremental)
+2. examinar as tabelas por valores muito fora do comum para detectar possíveis erros
+3. disponibilizar planilha ao cliente da informação
+
+----------------------------
+
+## Descrição dos dados
+
+### Dados processados (tidy)
+
+#### arquivo tidyCarProd.csv
+
+*Descrição*
+
+Este arquivo é gerado a partir do arquivo bruto gerado pelo SAS, CARPROD_AAAAMMDD.txt e é usado para ser importado para a aba de Base-CAR-Prod da planilha TDB Produção
+
+*Variáveis*
+
+**SOCIEDADE** - código da sociedade. *unidade de medida:* não se aplica
+
+**CHAINEORI** - canal de origem. *unidade de medida:* não se aplica
+
+**PRODALP** - código de prodalp. *unidade de medida:* não se aplica
+
+**TIPOTNC** - tipo de ???. *unidade de medida:* não se aplica
+
+**NBFI** - número de abertura de contratos. *unidade de medida:* inteiro
+
+**MTFI** - montante financeiro contratado. *unidade de medida:* moeda (Real)
+
+**DURFIN** - duração média de financiamento. *unidade de medida:* inteiro
+
+**TAC** - ???. *unidade de medida:* não se aplica
+
+**TEC** - ???. *unidade de medida:* não se aplica
+
+**TXCLM** - taxa ???. *unidade de medida:* percentual
+
+**TXVDRFIN** - taxa ???. *unidade de medida:* percentual
+
+**SEGURO** - quantidade de contratos com seguro. *unidade de medida:* inteiro
+
+**RETENCAO** - quantidade de retenções. *unidade de medida:* inteiro
+
+**DATAPROC** - mês e ano do processamento. *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteCartoes.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteSeguros.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteProd.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteAmort.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo riscbgn_cubo_producao_AAAAMMDD_tidy.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo riscbgn_cubo_liquidacao_AAAAMMDD_tidy.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo riscbgn_base_carteira_AAAAMMDD_tidy.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono*unidade de medida:* não se aplica

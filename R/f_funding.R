@@ -1,4 +1,4 @@
-function f_funding (df_temp_carteira) {
+f_funding <-function(df_temp_carteira) {
     # ------------- PASSO 14 e 15 (OK) Não precisa no momento destes passos
     # quando precisar, Amauri gera scritp para checar versão mais atual no
     # servidor e carregar no diretorio rawdata

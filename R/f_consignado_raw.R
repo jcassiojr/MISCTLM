@@ -12,9 +12,9 @@ f_consignado_raw <- function(anoMesDia)
     # caminhos e arquivos
     rawDir <- "./rawdata"
     tidyDir <- "./tidydata"
-    fileout_cuboprod <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_producao_",anoMesDia, "_raw.csv")
-    fileout_cuboliqu <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_liquidacao_",anoMesDia, "_raw.csv")
-    fileout_basecart <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_base_carteira_",anoMesDia, "_raw.csv")
+    fileout_cuboprod <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_producao_",anoMesDia, "_tidy.csv")
+    fileout_cuboliqu <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_cubo_liquidacao_",anoMesDia, "_tidy.csv")
+    fileout_basecart <- paste0(tidyDir,"/", mm_aaaa,"/", "riscbgn_base_carteira_",anoMesDia, "_tidy.csv")
 
     # conexao Oracle
     caminho <- "DWCTLPRD"

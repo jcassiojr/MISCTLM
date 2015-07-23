@@ -296,15 +296,220 @@ df <-
 # atenção: convertendo fator com is.numeric não dá certo para valores decimais, mesmo com ponto
 # mas sem conversão a operaçao com ponto funciona e com virgula não!!
 
-# mudar vírgula para ponto decimal somente nos campos decimais
+# função e comando para mudar vírgula para ponto decimal somente nos campos decimais
 # não aplica corretamente para campos character, por isso:
 # inx: número de colunas a mudar
 # trocar inx <- 1:4 para inx <- c(1,3,7, etc) caso colunas não adjacentes
 inx = 13:22
 fc <- function(x, inx){
-    #nm <- names(x)[inx]
     nm <- names(x)[inx]
     gsub(pattern = ",", replacement = ".", x = x[,nm])
 }
-  
-df2 <- data.frame(lapply(df, function(x) gsub(",", ".", x, fixed = TRUE)))         
+
+df_temp_producao <- data.frame(lapply(df_temp_producao, function(x) gsub(",", ".", x, fixed = TRUE)))
+
+# ler arquivo gerado pelo SAS para comparar valores riscbgn_cubo_producao
+sasDir <- "C:/MIS Asserth/migracao/consignado/arquivos SAS para homologar/"
+filein <- paste0(sasDir,"riscbgn_cubo_producao-07-2015.csv")
+df_riscbgn_cubo_producao_SAS <- read.csv(filein, sep = ",")
+
+# diferenças!!
+# 1.ver como está quebrando no SQL do SAS de temp_producao para riscbgn_cubo_producao
+# 2. carregar o do SAS no excel para replicar o agrupamento
+# gravar em formato csv o df_temp_producao gerado no R para comparar com o do SAS
+write.csv2(df_temp_producao, file = "C:/MIS Asserth/migracao/tem_producao_R_tst.csv")
+# os conteúdos batem quando aplico os filtros que sumarizam, tanto no R como SAS para
+# gerar df_riscbgn_cubo_producao, mas olhando nas planilhas de temp_producao
+# agora chegar os riscbgn_cubo SAS e R carregados em R para ver qual está certo com este
+# mesmo agrupamento
+
+# funcionou! ao transformar valores inteiros e decimais, originalmente factors, para character e
+# depois transformar em numerico com as.numeric (valores numéricos)) na propria soma
+
+# agora: testar porque trouxe diferente número de linhas já no temp_producao
+# Resposta: diferença somente nos dados de junho/2015, demais meses bateram os totais!!!
+# está ok, pois foram gerados em tempos diferentes!!!
+
+# testando valores de cubo_liquidacao
+# colunas VL_MVMT e VL_MVMT_TX tem os mesmo valores e não deveria!!!
+# VL_MVMT_TX não calcula. Replica valor de VL_MVMT ???!!!
+# cubo liquidação bate! era erro no sql digitado no R
+
+
+# próxuimo teste: ver se na planilha que Rafael passou os valores batem ao menos para os meses anteriores
+#  com os valores de
+# os valores da base de abril/2015 que Rafael passou parecem estar sumarizando os valores de
+# riscbgn.cubo.producao do SAS por DS_FLAL!!. Mas melhor deixar discriminado e filtrar no excel!!
+# tb, o riscbgn.cubo.producao somente tem valores de " Em dia" enquanto a base tem todos.
+# aparentemente traz zero qd não em dia!!!! entrão tudo bem " Em dia"
+# identifiquei os campos na base que vem de cubo_producao: QTD_PRODUCAO, VLR_PRODUCAO_BRUTA, etc
+
+# agora entra em f_PNL
+# conferir temp_carteira
+# carregando o do sas (não cabe em planilha) (do R já calculado)
+sasDir <- "C:/MIS Asserth/migracao/consignado/arquivos SAS para homologar/"
+filein <- paste0(sasDir,"temp_carteira20150430.csv")
+df_temp_carteira_sas <- read.csv(filein, sep = ",")
+
+df_temp_carteira_sas %>%
+    group_by(DS_CRTR) %>%
+    summarise(s = sum(as.numeric(MT_SLDO_DVDR)))
+
+df_temp_carteira_sas %>%
+#x %>%
+    group_by(CD_CRTR) %>%
+    summarise(s = round(sum(as.numeric(MT_SLDO_DVDR)),2))
+# o CD_CRTR_TEMP do R está ok com SAS. O problrma é no ifelse sobre CD_CRTR_TEMP!
+# no R está jogando tudo no 99!!!
+# corrigido! testar FAIXA_REPORT para ver se ok!!!
+df_temp_carteira_sas %>%
+#x %>%
+    group_by(ID_FAIX_ATRS) %>%
+    summarise(s = round(sum(as.numeric(MT_SLDO_DVDR)),2))
+# com FAIXA_REPORT e ATRASO parece ocorrer mesmo erro q acima com CD_CRTR
+# corrigido para os dois!!!!
+
+# testando para id_faix_atras
+# ok para ID_FAIX_ATRS!
+
+# para teste completo, criar script que mostra todos os campos sumarizados pelos acima
+
+# Abordagem: testar como acima para todos os grupamentos e bater os totais
+# obs. porque na soma não mostra o decimal? acho q não tem mesmo
+
+# -----------------------------------------------------------------
+# testes em 22-07 -
+#------------------------------------------------------------------
+#------------------------------------------------------------------
+#------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# testando contra planilha base para colunas que vem de riscbgn_cubo_producao
+# --------------------------------------------------------------------------
+
+x <- df_riscbgn_cubo_producao %>%
+    group_by(DT_REF) %>%
+    summarise(S_QTD_PRODUCAO = sum(as.numeric(QTD_PRODUCAO)), # ok
+              S_VLR_PRODUCAO_BRUTA = sum(as.double(VLR_PRODUCAO_BRUTA)), # arredondando centavos neste sumarização! dados discriminados ok!!
+              S_VLR_IOF = sum(as.numeric(VLR_IOF)), # arredondando centavos. idem
+              S_VLR_FUTURO = sum(as.numeric(VLR_FUTURO)), # arredondando centavos. idem
+              S_VLR_PRODUCAO_LIQUIDA = sum(as.numeric(VLR_PRODUCAO_LIQUIDA)), # arredondando centavos. idem
+              S_MT_BRUTO_PRAZO_PRD = sum(as.numeric(MT_BRUTO_PRAZO_PRD)), # ok
+              S_VLR_PRODUCAO_REFIN = sum(as.numeric(VLR_PRODUCAO_REFIN)), # arredondando centavos. idem
+              S_MT_BRUTO_PRAZO_JUROS_PRD = sum(as.numeric(MT_BRUTO_PRAZO_JUROS_PRD))) # arredondando centavos. idem
+
+# nos testes acima, valores batem com gerados no SAS para valores da base oficial
+
+# --------------------------------------------------------------------------
+# testando contra planilha base para colunas que vem de riscbgn_cubo_liquidacao
+# --------------------------------------------------------------------------
+
+x <- df_riscbgn_cubo_liquidacao %>%
+    group_by(DT_REF) %>%
+    summarise(S_VLR_PROD_LIQ = sum(as.numeric(VLR_PROD_LIQ)),
+              S_VLR_LIQ = sum(as.double(VLR_LIQ)),
+              S_VLR_LIQ_TAX = sum(as.numeric(VLR_LIQ_TAX)))
+
+
+# todos os valores acima batem com a planilha base fornecida com dados até 04/2015
+# última vez que foi gerada, segundo Rafael
+
+# --------------------------------------------------------------------------
+# para rodar f_PNL para testes abaixo, usado anoMesDia = "20150430"
+#---------------------------------------------------------------------------
+# comparar df_riscbgn_base_carteira gerado aqui com o lido do sas (ler aqui)
+# comparar valores sumarizados
+# --------------------------------------------------------------------------
+
+sasDir <- "C:/MIS Asserth/migracao/consignado/arquivos SAS para homologar/"
+filein <- paste0(sasDir,"riscbgn_base_carteira20150430.csv")
+df_base_carteira_sas <- read.csv(filein, sep = ",")
+
+df_base_carteira_sas %>%
+    group_by(CD_CRTR) %>%
+    summarise(S_MT_BRUTO_PRAZO = sum(as.numeric(MT_BRUTO_PRAZO)),
+              #S_MT_BRUTO_PRAZO_JUROS = sum(as.numeric(MT_BRUTO_PRAZO_JUROS)),
+              #S_SLD_CARTEIRA = sum(as.numeric(SLD_CARTEIRA)),
+              S_JUROS = sum(as.numeric(JUROS)),
+              S_FUNDING = sum(as.numeric(FUNDING)), # com diferença pequena! possível problema de precisão. Não usado no momento
+              S_SLD_PREJUIZO = sum(as.numeric(SLD_PREJUIZO)),
+              S_PDD = sum(as.numeric(PDD))) # # com diferença pequena! possível problema de precisão. Não usado no momento
+
+df_riscbgn_base_carteira %>%
+    group_by(CD_CRTR) %>%
+    summarise(S_MT_BRUTO_PRAZO = sum(as.numeric(MT_BRUTO_PRAZO)),
+              #S_MT_BRUTO_PRAZO_JUROS = sum(as.numeric(MT_BRUTO_PRAZO_JUROS)),
+              #_SLD_CARTEIRA = sum(as.numeric(SLD_CARTEIRA)),
+              S_JUROS = sum(as.numeric(JUROS)),
+              S_FUNDING = sum(as.numeric(FUNDING)),
+              S_SLD_PREJUIZO = sum(as.numeric(SLD_PREJUIZO)),
+              S_PDD = sum(as.numeric(PDD)))
+
+# nos testes acima, grupamento por FAIXA_REPORT ok, ATRASO ok, CD_CRTR ok
+# valores batem com gerados no SAS para riscbgn.base.carteira
+# para fundings e pdd, existe pequena diferença que pode ser por
+# arredondamento nos cálculos das taxas
+
+# --------------------------------------------------------------------------
+# testando contra planilha base para colunas que vem de df_riscbgn_base_carteira
+# antes de fazer merge com mesma base do mês anterior
+# --------------------------------------------------------------------------
+df_riscbgn_base_carteira %>%
+    group_by(DT_REF,FAIXA_REPORT) %>%
+    summarise(S_QTD_PRODUCAO = sum(MT_BRUTO_PRAZO), # ok
+              S_MT_BRUTO_PRAZO_JUROS = sum(MT_BRUTO_PRAZO_JUROS), # arredondando centavos. idem
+              S_MT_BRUTO_PRAZO = sum(MT_BRUTO_PRAZO), # arredondando centavos neste sumarização! dados discriminados ok!!
+              S_SLD_CARTEIRA = sum(SLD_CARTEIRA))
+
+df_base_carteira_sas %>%
+    group_by(FAIXA_REPORT) %>%
+    summarise(S_QTD_PRODUCAO = sum(MT_BRUTO_PRAZO), # ok
+              S_MT_BRUTO_PRAZO_JUROS = sum(MT_BRUTO_PRAZO_JUROS), # arredondando centavos. idem
+              S_MT_BRUTO_PRAZO = sum(MT_BRUTO_PRAZO), # arredondando centavos neste sumarização! dados discriminados ok!!
+              S_SLD_CARTEIRA = sum(SLD_CARTEIRA))
+
+# teste acima dando diferença não muito grande quando sumarizado por FAIXA_REPORT
+# para 201504 para base R testando com base sas, resultados batem!!!!
+
+# --------------------------------------------------------------------------
+# testando contra planilha base para colunas que vem de df_riscbgn_base_carteira
+# após de fazer merge com mesma base do mês anterior
+# --------------------------------------------------------------------------
+df_nova_base_risco_fim %>%
+    group_by(DT_REF,FAIXA_REPORT) %>%
+    summarise(S_QTD_PRODUCAO = sum(MT_BRUTO_PRAZO), # ok
+              S_MT_BRUTO_PRAZO_JUROS = sum(MT_BRUTO_PRAZO_JUROS),
+              S_MT_BRUTO_PRAZO_JUROS_ANT = sum(MT_BRUTO_PRAZO_JUROS_ANT))
+
+# teste acima dando diferença não muito grande quando sumarizado por FAIXA_REPORT
+# para 201504 para base R testando com base sas, resultados batem!!!!
+
+# --------------------------------------------------------------------------
+# testando contra planilha base para colunas que vem de df_riscbgn_cubo_carteira
+# após de fazer as primeira chamada a f_PNL
+# --------------------------------------------------------------------------
+df_riscbgn_cubo_carteira %>%
+    group_by(DT_REF) %>%
+    summarise(S_MT_BRUTO_PRAZO_JUROS = sum(MT_BRUTO_PRAZO_JUROS), # arredondando centavos. idem
+              S_MT_BRUTO_PRAZO = sum(MT_BRUTO_PRAZO), # arredondando centavos neste sumarização! dados discriminados ok!!
+              S_SLD_CARTEIRA = sum(SLD_CARTEIRA))
+
+df_riscbgn_base_carteira %>%
+    group_by(FAIXA_REPORT) %>%
+    summarise(S_MT_BRUTO_PRAZO_JUROS = sum(MT_BRUTO_PRAZO_JUROS), # arredondando centavos. idem
+              S_MT_BRUTO_PRAZO = sum(MT_BRUTO_PRAZO), # arredondando centavos neste sumarização! dados discriminados ok!!
+              S_SLD_CARTEIRA = sum(SLD_CARTEIRA))
+
+
+
+# FINAL!!!
+# em conversa com rafael, identificamos que a diferença que estava dando nas colunas de carteira:
+# MT_BRUTO_PRAZO_JUROS, MT_BRUTO_PRAZO e SLD_CARTEIRA em relação a planilha base se devem a que
+# na minha pesquisa entrava tb CD_PRDT (produto) automóvel, que não saia na versão anterior
+# ele pediu que deixe saindo. Então todas as colunas usadas até agora estão ok!!!!!
+
+# Estratégia final
+
+# esboçar entendimento de negócio dos dados para cada sql feito
+# e colocar nos comentários junto aos sqls!
+

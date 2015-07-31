@@ -1,14 +1,15 @@
 #' @description
-#' funcao de carga dos dados de producao, liquidação e carteira de  consignado
+#' funcao de carga dos dados de producao, liquidação e carteira de consignado
 #'
 #' @details
-#' nonononono
-#' @param x A number
-#' @param y A number
-#' @return The sum of \code{x} and \code{y}
+#' obtém os dados de consignado do mês corrente para ser acrescentado aos dados dos meses
+#' anteriores na planilha TDB Produção
+#' @param anoMesDia string com ano mês dia do último dia do mês de processamento no formato
+#' AAAAMMDD
+#' @return não se aplica
 #' @examples
-#' add(1, 1)
-#' add(10, 1)
+#' f_consignado_raw("20150331")
+#' f_consignado_raw("20150430")
 f_consignado_raw <- function(anoMesDia)
 {
     # datas de processamento (mudar as duas abaixo a cada processamento)
@@ -20,6 +21,7 @@ f_consignado_raw <- function(anoMesDia)
     #mm_aaaa_ant <- paste0(substr(anoMesDia_ant,5,6),".",substr(anoMesDia_ant,1,4))
 
     # caminhos e arquivos
+    aaaamm <- substr(anoMesDia,1,6)
     mm_aaaa <- paste0(substr(anoMesDia,5,6),".",substr(anoMesDia,1,4))
     rawDir <- "./rawdata"
     tidyDir <- "./tidydata"
@@ -169,9 +171,13 @@ f_consignado_raw <- function(anoMesDia)
                 VLR_PRODUCAO_REFIN_SEM_TAX = sum(as.numeric(VLR_PRODUCAO_REFIN_SEM_TAX)),
                 MT_BRUTO_PRAZO_PRD = sum(as.numeric(MT_BRUTO_PRAZO_PRD)),
                 MT_BRUTO_PRAZO_JUROS_PRD = sum(as.numeric(MT_BRUTO_PRAZO_JUROS_PRD)))
-
+    # filtrar somente o mês corrente para gerar a base para ser incrementada na base do TDB Produção
+    df_riscbgn_cubo_producao <-
+        df_riscbgn_cubo_producao %>%
+            filter (DT_REF == aammmm)
+    
     # aqui gravar arquivo raw em riscbgn_cubo_producao_AAAAMMDD_raw.csv na pasta do mês de processamento
-    # este arquivo deve substituir os dados da aba base usada na planilha TDB Produção
+    # este arquivo deve ser incrementado aos dados da aba base usada na planilha TDB Produção
     write.csv2(df_riscbgn_cubo_producao, file = fileout_cuboprod)
 
     # remove bases temporarias
@@ -336,8 +342,13 @@ f_consignado_raw <- function(anoMesDia)
                 VLR_PROD_LIQ_PRAZO = sum(as.numeric(PRODUCAO)*as.numeric(MOB))) %>%
         rename(Prazo_med_liq = MOB)
 
+    # filtrar somente o mês corrente para gerar a base para ser incrementada na base do TDB Produção
+    df_riscbgn_cubo_liquidacao <-
+        df_riscbgn_cubo_liquidacao %>%
+            filter (DT_REF == aammmm)
+    
     # aqui gravar arquivo raw em riscbgn_cubo_liquidacao_AAAAMMDD_raw.csv na pasta do mês de processamento
-    # este arquivo deve substituir os dados da aba base usada na planilha TDB Produção
+    # este arquivo deve ser incrementado aos dados da aba base usada na planilha TDB Produção
     write.csv2(df_riscbgn_cubo_liquidacao, file = fileout_cuboliqu)
 
     # remove bases usadas

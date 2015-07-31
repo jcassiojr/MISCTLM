@@ -27,19 +27,46 @@ Primeiro dia útil do mês
 
 #### Processamento SAS para gerar dados de Produção de Cartões
 
-1. monitorar pastas no servidor onde o SICLID gera os dumps do mês:
-/siclid/AAAAMM
-2. assim que arquivos usados no script SAS planif1.sas estiverem presentes:
-3. Abrir o aplicativo Guide (?) do SAS
-4. abrir o projeto (?) 
-5. abrir o script planif01.sas e clicar em Run
-6. ao terminar, examinar na aba de output se dados foram gerados corretamente
-7. entrar na aba de log e examinar para ver se processamento correu sem problemas
-8. repetir os passos 5 a 7 para os scripts planif02.sas, planif03.sas, planif04.sas, planif05.sas, planif06.sas e planif07.sas
+Para que sejam geradas as bases de produção de cartões, é necessário que sejam executados sete scripts no SAS (planif1.sas a planif7.sas), seguindo os passos abaixo para otimizar ao máximo seu tempo de execução.
+
+1. Abrir o aplicativo SAS Enterprise Guide na máquina local
+2. abrir o projeto (?)
+3. monitorar a pasta no servidor onde o SICLID gera os dumps do mês:
+/siclid/AAAAMM (onde AAAAMM é o ano/mês do mês a ser processado)
+4. aguardar que os arquivos abaixo estejam presentes na pasta de dumps do SICLID (obs: AAAAMMDD é a data do último dia do mês a ser processado):
+    - DOCPL.AAAAMMDD.001.Z 
+    - DOCTRL.AAAAMMDD.001.Z
+5. assim que os arquivos estiverem presentes, abrir o script planif01.sas e clicar em Run
+6. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+7. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+8. aguardar que os arquivos abaixo estejam presentes na pasta de dumps do SICLID:
+    - DOOCT.AAAAMMDD.001.Z
+    - VDVDR.AAAAMMDD.001.Z
+    - VDPRO.AAAAMMDD.001.Z
+    - PCSEG.AAAAMMDD.001.Z
+    - DOPTR.AAAAMMDD.001.Z
+9. assim que os arquivos estiverem presentes, abrir o script planif2.sas e clicar em Run
+10. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+11. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+12. aguardar que o arquivo abaixo esteja presente na pasta de dumps do SICLID:
+    - DOPRN.AAAAMMDD.001.Z
+13. assim que o arquivo estiver presente, abrir o script planif3.sas e clicar em Run
+14. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+15. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+16. monitorar a pasta no servidor:
+/export/data2/Arquivos_CTLM/Mouchards_Octroi/
+17. aguardar que os arquivos abaixo estejam presentes na pasta:
+    - MVTSENR.AAAAMMDD.001.Z (obs. deve existir um arquivo para cada dia do mês)
+18. assim que os arquivos estiverem presentes, repetir os passos abaixo para os scripts planif4.sas, planif5.sas, planif6.sas e planif7.sas
+19. abrir o script e clicar em Run
+20. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+21. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
 
 #### Processamento R
 
-1. copiar os arquivos abaixo para a pasta "C:\MISAsserth\PRODUCAO\MISCTLM\rawdata\MM.AAAA"
+O resultado do processamento SAS acima gera os arquivos abaixo para serem preparados para a carga na planilha TDB Produção, seguindo os passos abaixo.
+
+1. copiar os arquivos abaixo que se encontram na pasta /export/Trabalho/planejamento/RELATORIOS do servidor, onde o SAS gera as saídas, para a pasta C:\MISAsserth\PRODUCAO\MISCTLM\rawdata\MM.AAAA na máquina local onde está instalado o ambiente RStudio:
 - CARPROD_AAAAMMDD.txt
 - carte_amort_AAAAMM.csv
 - carte_cartoes_AAAAMM.csv
@@ -48,20 +75,23 @@ Primeiro dia útil do mês
 2. Entrar no RStudio
 3. Carregar o projeto **pckctlm**
 4. abrir o script carregaTDBProducao.R 
-5. mudar o valor da constante dataproc para a data do último dia do mês de referência no formato "AAAAMMDD"
-6. clicar no botão source
-7. checar se mensagem de processamento finalizado sem erros
+5. mudar o valor da constante **dataproc** que aparece no início do script para a data do último dia do mês de referência no formato "AAAAMMDD"
+6. clicar no botão source, na parte superior direita da janela onde se encontra o script aberto para iniciar o processamento
+7. checar a mensagem de processamento finalizado sem erros na janela de Console
 
 #### Carga na planilha TDB Producao
 
-1. adicionar os arquivos abaixo ao final dos dados dos meses anteriores nas abas de base correspondentes da planilha TDB Produção:
+O processamento R acima gera arquivos para a carga nas abas de base da planilha TDB producao.
+Os arquivos são gerados na pasta C:\MISAsserth\PRODUCAO\MISCTLM\tidydata\MM.AAAA, onde MM.AAAA é composto pelo mês e ano referente ao mês processado.
+
+1. adicionar os arquivos abaixo nas abas de base da planilha TDB Produção de maneira incmemental (ao final dos dados dos meses anteriores nas abas de base correspondentes):
 - tidyCarProd.csv -> aba Base-CAR-Prod (incremental)
 - tidyCarteCartoes.csv -> aba baseCARTECARTOES (incremental)
 - tidyCarteSeguros.csv -> baseCARTESEGUROS (incremental)
 - tidyCarteProd.csv -> CARPROD-Compras (incremental)
 - tidyCarteAmort.csv -> baseAMORT (incremental)
-- riscbgn_cubo_producao_AAAAMMDD_tidy.csv ->  baseCONSIG_PRD (substituir antigo conteúdo)
-- riscbgn_cubo_liquidacao_AAAAMMDD_tidy.csv ->  baseCONSIG_LIQ (substituir antigo conteúdo)
+- riscbgn_cubo_producao_AAAAMMDD_tidy.csv ->  baseCONSIG_PRD (incremental)
+- riscbgn_cubo_liquidacao_AAAAMMDD_tidy.csv ->  baseCONSIG_LIQ (incremental)
 - riscbgn_base_carteira_AAAAMMDD_tidy.csv ->  baseCONSIG_CART (incremental)
 2. examinar as tabelas por valores muito fora do comum para detectar possíveis erros
 3. disponibilizar planilha ao cliente da informação

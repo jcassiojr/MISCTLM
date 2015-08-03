@@ -174,7 +174,7 @@ f_consignado_raw <- function(anoMesDia)
     # filtrar somente o mês corrente para gerar a base para ser incrementada na base do TDB Produção
     df_riscbgn_cubo_producao <-
         df_riscbgn_cubo_producao %>%
-            filter (DT_REF == aammmm)
+            filter (DT_REF == aaaamm)
     
     # aqui gravar arquivo raw em riscbgn_cubo_producao_AAAAMMDD_raw.csv na pasta do mês de processamento
     # este arquivo deve ser incrementado aos dados da aba base usada na planilha TDB Produção
@@ -345,7 +345,7 @@ f_consignado_raw <- function(anoMesDia)
     # filtrar somente o mês corrente para gerar a base para ser incrementada na base do TDB Produção
     df_riscbgn_cubo_liquidacao <-
         df_riscbgn_cubo_liquidacao %>%
-            filter (DT_REF == aammmm)
+            filter (DT_REF == aaaamm)
     
     # aqui gravar arquivo raw em riscbgn_cubo_liquidacao_AAAAMMDD_raw.csv na pasta do mês de processamento
     # este arquivo deve ser incrementado aos dados da aba base usada na planilha TDB Produção

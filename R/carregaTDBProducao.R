@@ -12,13 +12,14 @@
 
 # ATENÇÃO: data de processamento deve ser trocada abaixo a cada mês
 # ----------------------
-dataproc <- "20150630"
+dataproc <- "20150731"
 # ----------------------
 
 # source scripts necessários
 source("./R/f_leCsvCARPROD_raw.R")
 source("./R/f_SICLID_raw.R")
 source("./R/f_consignado_raw.R")
+source("./R/f_montaBaseConsig.R")
 
 # verifica e prepara ambiente de libraries necessárias
 if (!requireNamespace("openxlsx", quietly = TRUE)) {
@@ -59,6 +60,9 @@ f_SICLID_raw(dataproc)
 
 # criar os arquivos processados para alimentar planilha TDB Produção, aba CONSIGNADO
 f_consignado_raw(dataproc)
+
+# chama funcao que monta a base consignado a partir dos arquivos salvos na funcao f_consignado_raw
+f_montaBaseConsig(anoMesDia)
 
 # plota arquivos para checagem inicial
 #plot(ll[[1]]$NBFI, type = "l")

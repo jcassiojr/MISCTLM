@@ -493,7 +493,7 @@ f_consignado_raw <- function(anoMesDia)
     write.csv2(df_riscbgn_base_carteira, file = fileout_basecart)
 
     # remove bases usadas antes de sair
-    rm(df_temp_carteira, df_riscbgn_base_carteira, df_riscbgn_cubo_liquidacao, df_riscbgn_cubo_producao)
+    rm(df_temp_carteira, df_riscbgn_base_carteira)
 
     # ----------- Fim do processamento consignado
 }

@@ -1,0 +1,224 @@
+---
+title: "TDB Produção"
+author: "José Cassio dos Santos Jr. - Grupo Asserth"
+date: "1 de julho de 2015"
+output:
+  html_document:
+    theme: flatly
+  pdf_document: default
+  word_document: default
+---
+
+-----------------------------
+
+## CODE BOOK
+
+Abaixo estão descritos os procedimentos para a geração dos dados do relatório TDB Produção
+
+### JANELA DE EXECUÇÃO
+
+Primeiro dia útil do mês. Repetir o procedimento após o terceiro dia útil do mês (ver nota importante abaixo).
+
+### TAREFAS
+
+- rodar SAS para gerar arquivos raw. 
+- rodar R para gerar arquivos tidy para alimentar planilha. 
+- importar para planilha
+
+**Nota importante:** este processamento deve ser feito no primeiro dia útil do mês.
+Como os dados de Consignado Carteira somente ficam disponíveis na base Oracle entre o segundo e terceiro dia útil, estes valores ficam vazios no TDB Produção gerado no primeiro dia útil.
+Por isso é necessário rodar novamente estes procedimentos após o terceiro dia útil do mês de forma a gerar o TDB Produção completo.
+
+### PROCEDIMENTOS
+
+#### Processamento SAS para gerar dados de Produção de Cartões
+
+Para que sejam geradas as bases de produção de cartões, é necessário que sejam executados sete scripts no SAS (planif1.sas a planif4.sas), seguindo os passos abaixo para otimizar ao máximo seu tempo de execução.
+
+1. Abrir o aplicativo SAS Enterprise Guide na máquina local
+2. abrir o projeto Processo Planif 2014.egp qu ese encontra na pasta da rede M:/PLAN-Planejamento/Programas/SAS/
+3. monitorar a pasta no servidor onde o SICLID gera os dumps do mês:
+/siclid/AAAAMM (onde AAAAMM é o ano/mês do mês a ser processado)
+4. aguardar que os arquivos abaixo estejam presentes na pasta de dumps do SICLID (obs: AAAAMMDD é a data do último dia do mês a ser processado):
+    - DOCPL.AAAAMMDD.001.Z 
+    - DOCTRL.AAAAMMDD.001.Z
+5. assim que os arquivos estiverem presentes, abrir o script *planif01.sas* e clicar em Run
+6. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+7. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+8. aguardar que os arquivos abaixo estejam presentes na pasta de dumps do SICLID:
+    - DOOCT.AAAAMMDD.001.Z
+    - VDVDR.AAAAMMDD.001.Z
+    - VDPRO.AAAAMMDD.001.Z
+    - PCSEG.AAAAMMDD.001.Z
+    - DOPTR.AAAAMMDD.001.Z
+9. assim que os arquivos estiverem presentes, abrir o script *planif2.sas* e clicar em Run
+10. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+11. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+12. aguardar que o arquivo abaixo esteja presente na pasta de dumps do SICLID:
+    - DOPRN.AAAAMMDD.001.Z
+13. assim que o arquivo estiver presente, abrir o script *planif3.sas* e clicar em Run
+14. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+15. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+16. ao terminar o processamento anterior, abrir o script *planif4.sas* e clicar em Run
+20. ao terminar, examinar na aba de output se os dados foram gerados corretamente
+21. entrar na aba de log e examinar para ver se existe alguma mensagem de erro de processamento
+
+Após o término destes processamentos os arquivos necessários já se encontrarão disponíveis para o Processamento R abaixo.
+
+#### Processamento R
+
+O resultado do processamento SAS acima gera os arquivos abaixo para serem preparados para a carga na planilha TDB Produção, seguindo os passos abaixo.
+
+1. copiar os arquivos abaixo que se encontram na pasta /export/Trabalho/planejamento/RELATORIOS do servidor, onde o SAS gera as saídas, para a pasta C:\MISAsserth\PRODUCAO\MISCTLM\rawdata\MM.AAAA na máquina local onde está instalado o ambiente RStudio:
+- CARPROD_AAAAMMDD.txt
+- carte_amort_AAAAMM.csv
+- carte_cartoes_AAAAMM.csv
+- carte_prod_TDBPRODUCAO_AAAAMMDD.csv
+- carte_seguros_AAAAMM.csv
+2. Entrar no RStudio
+3. Carregar o projeto **PRDCTLM**
+4. abrir o script carregaTDBProducao.R 
+5. mudar o valor da constante **dataproc** que aparece no início do script para a data do último dia do mês de referência no formato "AAAAMMDD"
+6. clicar no botão source, na parte superior direita da janela onde se encontra o script aberto para iniciar o processamento
+7. checar a mensagem de processamento finalizado sem erros na janela de Console
+
+#### Carga na planilha TDB Producao
+
+O processamento R acima gera arquivos para a carga nas abas de base da planilha TDB producao.
+Os arquivos são gerados na pasta C:\MISAsserth\PRODUCAO\MISCTLM\tidydata\MM.AAAA, onde MM.AAAA é composto pelo mês e ano referente ao mês processado.
+
+1. adicionar os arquivos abaixo nas abas de base da planilha TDB Produção de maneira incmemental (ao final dos dados dos meses anteriores nas abas de base correspondentes):
+- tidyCarProd.csv -> aba Base-CAR-Prod (incremental)
+- tidyCarteCartoes.csv -> aba baseCARTECARTOES (incremental)
+- tidyCarteSeguros.csv -> baseCARTESEGUROS (incremental)
+- tidyCarteProd.csv -> CARPROD-Compras (incremental)
+- tidyCarteAmort.csv -> baseAMORT (incremental)
+- riscbgn_base_consignado_AAAAMMDD_tidy.csv ->  baseCONSIGNADO (incremental)
+2. examinar as tabelas por valores muito fora do comum para detectar possíveis erros
+3. disponibilizar planilha ao cliente da informação
+
+----------------------------
+
+## Descrição dos dados
+
+### Dados processados (tidy)
+
+#### arquivo tidyCarProd.csv
+
+*Descrição*
+
+Este arquivo é gerado a partir do arquivo bruto gerado pelo SAS, CARPROD_AAAAMMDD.txt e é usado para ser importado para a aba de Base-CAR-Prod da planilha TDB Produção
+
+*Variáveis*
+
+**SOCIEDADE** - código da sociedade. *unidade de medida:* não se aplica
+
+**CHAINEORI** - canal de origem. *unidade de medida:* não se aplica
+
+**PRODALP** - código de prodalp. *unidade de medida:* não se aplica
+
+**TIPOTNC** - tipo de ???. *unidade de medida:* não se aplica
+
+**NBFI** - número de abertura de contratos. *unidade de medida:* inteiro
+
+**MTFI** - montante financeiro contratado. *unidade de medida:* moeda (Real)
+
+**DURFIN** - duração média de financiamento. *unidade de medida:* inteiro
+
+**TAC** - ???. *unidade de medida:* não se aplica
+
+**TEC** - ???. *unidade de medida:* não se aplica
+
+**TXCLM** - taxa ???. *unidade de medida:* percentual
+
+**TXVDRFIN** - taxa ???. *unidade de medida:* percentual
+
+**SEGURO** - quantidade de contratos com seguro. *unidade de medida:* inteiro
+
+**RETENCAO** - quantidade de retenções. *unidade de medida:* inteiro
+
+**DATAPROC** - mês e ano do processamento. *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteCartoes.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteSeguros.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteProd.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo tidyCarteAmort.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo riscbgn_cubo_producao_AAAAMMDD_tidy.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo riscbgn_cubo_liquidacao_AAAAMMDD_tidy.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica
+
+----------------------------
+
+#### arquivo riscbgn_base_carteira_AAAAMMDD_tidy.csv
+
+*Descrição*
+
+nononono
+
+*Variáveis*
+
+**NONONONO** - nononono *unidade de medida:* não se aplica

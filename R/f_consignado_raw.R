@@ -141,7 +141,8 @@ f_consignado_raw <- function(anoMesDia)
                 id_faix_atrs = -1,
                 CD_CRTR = ifelse(!(CD_CRTR_TEMP %in% c(50,52,53,55)), 99, CD_CRTR_TEMP))
 
-    # ------------ PASSO ADICIONAL PARA TEMP_PRODUCAO
+    # ------------ PASSO ADICIONAL PARA TEMP_PRODUCAO 
+    # TESTAR stringAsFactor = FALSE (funcionou!) e dec = "." (não funcionou) na chamada a SqlQuery para eliminar este passo)
     # troca vírgula por ponto em colunas selecionadas de data.frame
     df_temp_producao <- data.frame(lapply(df_temp_producao, function(x) gsub(",", ".", x, fixed = TRUE)), stringsAsFactors = FALSE)
 
